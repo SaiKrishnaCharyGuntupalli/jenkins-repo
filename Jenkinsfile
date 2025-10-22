@@ -30,7 +30,9 @@ pipeline {
                     # Wait and verify
                     sleep 5
                     docker ps | grep fastapi-backend
-                    curl -f http://localhost:8000 || exit 1
+                    
+                    # Test the API from within the container network
+                    docker exec fastapi-backend curl -f http://localhost:8000 || exit 1
                 '''
             }
         }
