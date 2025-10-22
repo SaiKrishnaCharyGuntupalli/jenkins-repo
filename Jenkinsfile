@@ -1,52 +1,50 @@
 pipeline {
-    agent any
-
-    environment {
-        IMAGE_NAME = "fastapi-app"
-        CONTAINER_NAME = "fastapi-container"
-    }
-
+    agent any  // Changed: Use any available agent on local machine
+    
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/SaiKrishnaCharyGuntupalli/jenkins-repo.git'
+                echo 'Checking out code on local machine...'
+                checkout scm
             }
         }
-
+        
         stage('Build Docker Image') {
             steps {
-                script {
-                    sh 'docker build -t ${IMAGE_NAME} .'
-                }
+                echo 'Building Docker image...'
+                sh 'docker build -t fastapi-app .'
             }
         }
-
-        stage('Stop and Remove Old Container') {
+        
+        stage('Deploy') {
             steps {
-                script {
-                    sh '''
-                    docker ps -q --filter "name=${CONTAINER_NAME}" | grep -q . && docker stop ${CONTAINER_NAME} || true
-                    docker rm ${CONTAINER_NAME} || true
-                    '''
-                }
-            }
-        }
-
-        stage('Run New Container') {
-            steps {
-                script {
-                    sh 'docker run -d -p 8000:8000 --name ${CONTAINER_NAME} ${IMAGE_NAME}'
-                }
+                echo 'Deploying FastAPI container...'
+                sh '''
+                    # Stop and remove old container
+                    docker stop fastapi-backend || true
+                    docker rm fastapi-backend || true
+                    
+                    # Run new container
+                    docker run -d -p 8000:8000 --name fastapi-backend fastapi-app
+                    
+                    # Wait and verify
+                    sleep 5
+                    docker ps | grep fastapi-backend
+                    curl -f http://localhost:8000 || exit 1
+                '''
             }
         }
     }
-
+    
     post {
         success {
-            echo '🎉 FastAPI App deployed successfully!'
+            echo '✅ Pipeline completed successfully!'
+            echo '🚀 FastAPI running: http://localhost:8000'
+            echo '📖 API docs: http://localhost:8000/docs'
         }
         failure {
-            echo '❌ Deployment failed.'
+            echo '❌ Pipeline failed!'
+            sh 'docker logs fastapi-backend || true'
         }
     }
 }
