@@ -17,6 +17,7 @@ FROM python:3.10-slim
 
 # 2️⃣ Set the working directory inside the container
 WORKDIR /app
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # 3️⃣ Copy only requirements first (to optimize Docker caching)
 COPY requirements.txt .
