@@ -37,33 +37,23 @@ pipeline {
         }
         
         stage('Deploy to EC2') {
-            agent { label 'ec2-production' }
-            steps {
-                echo '🚀 Deploying FastAPI application...'
-                sh '''
-                    # Restart the systemd service
-                    sudo systemctl restart fastapi
-                    
-                    # Wait for service to start
-                    sleep 3
-                    
-                    # Verify service is running
-                    if sudo systemctl is-active --quiet fastapi; then
-                        echo "✅ Service is running"
-                    else
-                        echo "❌ Service failed to start"
-                        sudo systemctl status fastapi
-                        exit 1
-                    fi
-                    
-                    # Test the API endpoint
-                    if curl -f http://localhost:8000 > /dev/null 2>&1; then
-                        echo "✅ API is responding"
-                    else
-                        echo "❌ API is not responding"
-                        exit 1
-                    fi
-                    
+    agent { label 'ec2-production' }
+    steps {
+        echo '🚀 Deploying FastAPI application...'
+        sh '''
+            # Restart the systemd service
+            sudo systemctl restart fastapi
+            
+            # Wait for service to start
+            sleep 5
+            
+            # Test the API endpoint directly (no sudo needed)
+            MAX_RETRIES=10
+            RETRY_COUNT=0
+            
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+                if curl -f http://localhost:8000 > /dev/null 2>&1; then
+                    echo "✅ API is responding"
                     echo ""
                     echo "=========================================="
                     echo "✅ DEPLOYMENT SUCCESSFUL!"
@@ -71,10 +61,20 @@ pipeline {
                     echo "🌐 Application URL: http://13.203.105.40:8000"
                     echo "📖 API Documentation: http://13.203.105.40:8000/docs"
                     echo "=========================================="
-                '''
-            }
-        }
+                    exit 0
+                fi
+                echo "Waiting for API to start... ($RETRY_COUNT/$MAX_RETRIES)"
+                sleep 2
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+            done
+            
+            echo "❌ API failed to start within timeout"
+            sudo systemctl status fastapi
+            exit 1
+        '''
     }
+}
+}
     
     post {
         success {
