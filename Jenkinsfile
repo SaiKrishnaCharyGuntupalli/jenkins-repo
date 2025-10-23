@@ -5,53 +5,33 @@ pipeline {
         stage('Checkout') {
             agent { label 'ec2-production' }
             steps {
-                echo 'Checking out code on EC2...'
+                echo '📥 Checking out code from GitHub...'
                 checkout scm
             }
         }
         
-        stage('Setup Python Environment') {
+        stage('Setup Environment') {
             agent { label 'ec2-production' }
             steps {
-                echo 'Setting up Python on EC2...'
+                echo '🔧 Setting up Python virtual environment...'
                 sh '''
                     python3 -m venv venv
                     . venv/bin/activate
                     pip install --upgrade pip
-                '''
-            }
-        }
-        
-        stage('Install Dependencies') {
-            agent { label 'ec2-production' }
-            steps {
-                echo 'Installing dependencies on EC2...'
-                sh '''
-                    . venv/bin/activate
                     pip install -r requirements.txt
                 '''
             }
         }
         
-        stage('Test') {
+        stage('Test Installation') {
             agent { label 'ec2-production' }
             steps {
-                echo 'Running tests on EC2...'
+                echo '🧪 Testing dependencies...'
                 sh '''
                     . venv/bin/activate
                     python --version
                     pip list
-                '''
-            }
-        }
-        
-        stage('Stop Existing App') {
-            agent { label 'ec2-production' }
-            steps {
-                echo 'Stopping existing FastAPI on EC2...'
-                sh '''
-                    pkill -f "uvicorn main:app" || true
-                    sleep 2
+                    python -c "import fastapi; import uvicorn; print('✅ All dependencies installed')"
                 '''
             }
         }
@@ -59,18 +39,38 @@ pipeline {
         stage('Deploy to EC2') {
             agent { label 'ec2-production' }
             steps {
-                echo 'Deploying FastAPI to EC2...'
+                echo '🚀 Deploying FastAPI application...'
                 sh '''
-                    . venv/bin/activate
+                    # Restart the systemd service
+                    sudo systemctl restart fastapi
                     
-                    nohup uvicorn main:app --host 0.0.0.0 --port 8000 > fastapi.log 2>&1 &
-                    echo $! > fastapi.pid
+                    # Wait for service to start
+                    sleep 3
                     
-                    sleep 5
+                    # Verify service is running
+                    if sudo systemctl is-active --quiet fastapi; then
+                        echo "✅ Service is running"
+                    else
+                        echo "❌ Service failed to start"
+                        sudo systemctl status fastapi
+                        exit 1
+                    fi
                     
-                    curl -f http://localhost:8000 || exit 1
+                    # Test the API endpoint
+                    if curl -f http://localhost:8000 > /dev/null 2>&1; then
+                        echo "✅ API is responding"
+                    else
+                        echo "❌ API is not responding"
+                        exit 1
+                    fi
                     
-                    echo "✅ Deployed successfully on EC2!"
+                    echo ""
+                    echo "=========================================="
+                    echo "✅ DEPLOYMENT SUCCESSFUL!"
+                    echo "=========================================="
+                    echo "🌐 Application URL: http://13.203.105.40:8000"
+                    echo "📖 API Documentation: http://13.203.105.40:8000/docs"
+                    echo "=========================================="
                 '''
             }
         }
@@ -79,11 +79,15 @@ pipeline {
     post {
         success {
             echo '✅ Pipeline completed successfully!'
-            echo '🚀 FastAPI running on EC2: http://13.203.105.40:8000'
-            echo '📖 API docs: http://13.203.105.40:8000/docs'
+            echo '🚀 FastAPI is running at: http://13.203.105.40:8000'
+            echo '📖 API Docs: http://13.203.105.40:8000/docs'
         }
         failure {
             echo '❌ Pipeline failed!'
+            echo '🔍 Check logs with: sudo journalctl -u fastapi -n 50'
+        }
+        always {
+            echo '📊 Build finished at: ' + new Date().toString()
         }
     }
 }
