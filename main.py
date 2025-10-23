@@ -19,7 +19,7 @@ app.add_middleware(
 # Define a route (homepage)
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the FastAPI Application! 🎉"}
+    return {"message": "Welcome to the FastAPI Application!! 🎉"}
 
 
 # Define the request body model
