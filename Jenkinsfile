@@ -79,8 +79,8 @@ pipeline {
     post {
         success {
             echo '✅ Pipeline completed successfully!'
-            echo '🚀 FastAPI running on EC2: http://13.127.203.26:8000'
-            echo '📖 API docs: http://13.127.203.26:8000/docs'
+            echo '🚀 FastAPI running on EC2: http://13.203.105.40:8000'
+            echo '📖 API docs: http://13.203.105.40:8000/docs'
         }
         failure {
             echo '❌ Pipeline failed!'
